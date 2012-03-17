@@ -1,27 +1,27 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<script src="lightgl.js"></script>
-		<script src="csg.js"></script>
-		<script src="openjscad.js"></script>
-		<script src="jquery.js"></script>
-		<script src="coffee-script.js"></script>
+		<script src="../lightgl.js"></script>
+		<script src="../csg.js"></script>
+		<script src="../openjscad.js"></script>
+		<script src="../jquery.js"></script>
+		<script src="../coffee-script.js"></script>
+		<script src="../Math.uuid.js"></script>
 		<style>
 			body {
 				font: 14px/20px 'Helvetica Neue Light', HelveticaNeue-Light, 'Helvetica Neue', Helvetica, Arial, sans-serif;
 			}
-			pre, code, textarea {
+			pre, code, textarea, canvas {
 				font: 12px/20px Monaco, monospace;
 				border: 1px solid #CCC;
 				border-radius: 3px;
 				background: #F9F9F9;
-				padding: 0 3px;
+				padding: 0;
+				margin: 0;
 				color: #555;
 			}
-			pre, textarea {
-				padding: 10px;
-			}
 			pre {
+				padding: 10px;
 				width: 100%;
 			}
 			textarea:focus {
@@ -30,88 +30,120 @@
 			canvas {
 				cursor: move;
 			}
-			header > *{
+			header {
+				padding: 0;
+				margin: 0;
+				position: fixed;
+				top: 0;
+				right: 0;
+				left: 0;
+				border-bottom: 1px solid black;
+				background: #bbb;
+				height: 1.2em;
+			}
+			header > * {
 				display: inline-block;
+			}
+			body {
+				margin: 1.3em 0 0 0;
+				padding: 0;
 			}
 		</style>
 		<link rel="stylesheet" href="openjscad.css" type="text/css">
-		<script>
+		<script type="text/coffeescript">
+			# Show all exceptions to the user:
+			OpenJsCad.AlertUserOfUncaughtExceptions()
+			gProcessor = revision = null
 
-			var gProcessor=null;
+			window.prepareCode = (lang, code) ->
+				if 'CoffeeScript' == lang
+					code = CoffeeScript.compile code, bare: 'on'
+				console.group 'code'
+				console.log code
+				console.groupEnd()
+				code
+			window.getCode = -> $('#code').val()
+			window.getLang = -> $('#lang').val()
+			window.getJsCode = ->
+				prepareCode getLang(), getCode()
 
-			// Show all exceptions to the user:
-			OpenJsCad.AlertUserOfUncaughtExceptions();
+			window.updateSolid = ->
+				gProcessor.setJsCad getJsCode()
 
-			function onload() {
-				gProcessor = new OpenJsCad.Processor(document.getElementById("viewer"));
-				updateSolid();
-			}
+			# http://pallieter.org/Projects/insertTab/
+			window.insertTab = (o, e) ->
+				kC = e.keyCode ? e.charCode ? e.which
+				if kC == 9 && !e.shiftKey && !e.ctrlKey && !e.altKey
+					oS = o.scrollTop
+					if o.setSelectionRange
+						sS = o.selectionStart
+						sE = o.selectionEnd
+						o.value = "#{o.value.substring 0, sS}\t#{o.value.substr sE}"
+						o.setSelectionRange sS + 1, sS + 1
+						o.focus()
+					else if o.createTextRange
+						document.selection.createRange().text = "\t"
+						e.returnValue = false
+					o.scrollTop = oS
+					if e.preventDefault
+						e.preventDefault()
+				true
 
-			function getCode() {
-				var code = document.getElementById('code').value;
-				var lang = document.getElementById('lang').value;
-				if( 'CoffeeScript' === lang)
-					code = CoffeeScript.compile( code, { bare: 'on'});
-				return code;
-			}
+			window.currentFilename = -> /\/([^\/]*?)$/.exec(window.location.pathname)[1]
 
-			function updateSolid() {
-				gProcessor.setJsCad( getCode());
-			}
+			window.loadFile = (fn) ->
+				rev = localStorage[fn]
+				JSON.parse localStorage[rev]
 
-			/* http://pallieter.org/Projects/insertTab/ */
-			function insertTab(o, e) {
-				var kC = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
-				if (kC == 9 && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-					var oS = o.scrollTop;
-					if (o.setSelectionRange) {
-						var sS = o.selectionStart;
-						var sE = o.selectionEnd;
-						o.value = o.value.substring(0, sS) + "\t" + o.value.substr(sE);
-						o.setSelectionRange(sS + 1, sS + 1);
-						o.focus();
-					}
-					else if (o.createTextRange) {
-						document.selection.createRange().text = "\t";
-						e.returnValue = false;
-					}
-					o.scrollTop = oS;
-					if (e.preventDefault)
-						e.preventDefault();
-					return false;
-				}
-				return true;
-			}
+			window.writeFile = (fn, lang, code) ->
+				rev = Math.uuid()
+				localStorage[rev] = JSON.stringify [fn, revision, getLang(), getCode()]
+				localStorage[fn] = revision = rev
 
-			hist = [];
-			function edit_history(event) {
-			}
+			# Store the file-history (for undo) in the browser-storage:
+			window.edit_history = (event) ->
+				fn = currentFilename()
+				code = getCode()
+				lang = getLang()
+				[_,_, oldlang, oldcode] = loadFile fn
+				writeFile fn, lang, code  unless oldcode == code and oldlang == lang
+				true
+
+			CSG.loadFile = (fn) ->
+				[fn, rev, lang, code] = loadFile()
+				eval prepareCode( lang, code)
+
+			window.resizeCode = ->
+				$code = $ '#code'
+				$code.css
+					width: "#{$('body').innerWidth() - $('#viewer').outerWidth() - $code.outerWidth() + $code.width()}px"
+					height: '600px'
+
+			$ ->
+				$('#code').
+					on( 'keydown', (e)-> insertTab this, e).
+					on( 'keyup', edit_history)
+
+				[fn, rev, lang, code] = loadFile currentFilename()
+				$('#lang').val lang
+				$('#code').val code
+				gProcessor = new OpenJsCad.Processor $("#viewer")[0]
+				updateSolid()
+				resizeCode()
+
 		</script>
 		<title>OpenJsCad</title>  
 	</head>
 
-	<body onload="onload()">
+	<body>
 		<header>
-		<h1>OpenJsCad</h1>
-		[<a href='#' onclick="updateSolid(); return false;">Update</a>]
+			<a href='#' onclick="updateSolid(); return false;">Update</a>
 		</header>
 
 		<div id="viewer" style="float:right;"></div>
 
 		<div id="editor">
-			<textarea id="code" name="code" onkeydown="r=insertTab(this, event);edit_history(event);return r">main = ->
-	resolution = 24; # increase to get smoother corners (will get slow!)
-
-	cube1 = CSG.roundedCube center: [0,0,0], radius: [10,10,10], roundradius: 2, resolution: resolution
-	sphere1 = CSG.sphere center: [5, 5, 5], radius: 10, resolution: resolution
-	sphere2 = sphere1.translate [12, 5, 0]
-	sphere3 = CSG.sphere center: [20, 0, 0], radius: 30, resolution: resolution
-
-	result = cube1
-	result = result.union sphere1
-	result = result.subtract sphere2
-	result = result.intersect sphere3
-	result</textarea>
+			<textarea id="code" name="code"></textarea>
 			<br>
 			<select id="lang" name="lang">
 				<option>JavaScript</option>

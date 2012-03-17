@@ -308,8 +308,8 @@ OpenJsCad.javaScriptToSolidSync = function(script, mainParameters, debugging) {
 // callback: should be function(error, csg)
 OpenJsCad.javaScriptToSolidASync = function(script, mainParameters, callback) {
   var baselibraries = [
-    "csg.js",
-    "openjscad.js"
+    "../csg.js",
+    "../openjscad.js"
   ];
   var baseurl = document.location + "";
   var workerscript = "";
