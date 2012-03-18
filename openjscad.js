@@ -94,6 +94,9 @@ OpenJsCad.Viewer = function(containerelement, width, height, initialdepth) {
   gl.onmousemove = function(e) {
     _this.onMouseMove(e);
   };
+	gl.onmousewheel = function(e) {
+		_this.onMouseWheel(e);
+	}
   gl.ondraw = function() {
     _this.onDraw();
   };
@@ -116,10 +119,19 @@ OpenJsCad.Viewer.prototype = {
     return !!this.gl; 
   },
   
+	onMouseWheel: function(e) {
+		e.preventDefault();
+		console.log( 'mousewheel', e);
+		var factor = 1e-2;
+		this.viewpointZ *= Math.pow(2,factor * e.wheelDeltaY);
+		this.onDraw();
+		return false;
+	},
+
   onMouseMove: function(e) {
     if (e.dragging) {
       e.preventDefault();
-      if(e.altKey)
+      if(e.altKey||e.ctrlKey||e.metaKey)
       {
         var factor = 1e-2;
         this.viewpointZ *= Math.pow(2,factor * e.deltaY);

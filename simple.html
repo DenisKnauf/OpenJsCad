@@ -39,36 +39,105 @@
 				left: 0;
 				border-bottom: 1px solid black;
 				background: #bbb;
-				height: 1.2em;
+				height: 1.9em;
 			}
 			header > * {
 				display: inline-block;
 			}
 			body {
-				margin: 1.3em 0 0 0;
+				margin: 2em 0 0 0;
 				padding: 0;
 			}
 		</style>
-		<link rel="stylesheet" href="openjscad.css" type="text/css">
+		<link rel="stylesheet" href="../openjscad.css" type="text/css">
 		<script type="text/coffeescript">
-			# Show all exceptions to the user:
-			OpenJsCad.AlertUserOfUncaughtExceptions()
-			gProcessor = revision = null
+			window.DelayedCall = (fun, delay = 250) ->
+				self = (args...) ->
+					self.stop()
+					self.fire(args...)
+				self.call = fun
+				self.delay = delay
+				self.fire = (args...) ->
+					self.stop()
+					self.to = setTimeout (-> self.call( args...)), self.delay
+					this
+				self.stop = ->
+					clearTimeout self.to
+					this
+				self
 
-			window.prepareCode = (lang, code) ->
-				if 'CoffeeScript' == lang
-					code = CoffeeScript.compile code, bare: 'on'
-				console.group 'code'
-				console.log code
-				console.groupEnd()
-				code
-			window.getCode = -> $('#code').val()
-			window.getLang = -> $('#lang').val()
-			window.getJsCode = ->
-				prepareCode getLang(), getCode()
+			CSG.loadFile = (fn) ->
+				[fn, rev, lang, code] = openjscadUI.loadFile()
+				eval openjscadUI.prepareCode( lang, code)
 
-			window.updateSolid = ->
-				gProcessor.setJsCad getJsCode()
+			class UI
+				constructor: ->
+					self = this
+					# Show all exceptions to the user:
+					OpenJsCad.AlertUserOfUncaughtExceptions()
+					@gProcessor = null
+					@revision = null
+					@$code = $ '#code'
+					@$lang = $ '#lang'
+					@$viewer = $ '#viewer'
+					@$body = $ 'body'
+
+					[fn, rev, lang, code] = @loadFile @currentFilename()
+					@$lang.val lang
+					@$code.
+						on( 'keyup.openjscadui', -> self.edit_history()).
+						val code
+					@windowResized = new DelayedCall -> self.resizeCode()
+					$(window).on 'resize.openjscadui', @windowResized
+
+					@gProcessor = new OpenJsCad.Processor @$viewer[0]
+					@updateSolid()
+					@resizeCode()
+
+				destroy: ->
+					@$code.off '.openjscadui'
+					$(window).off '.openjscadui'
+
+				prepareCode: (lang, code) ->
+					code = CoffeeScript.compile code, bare: 'on'  if 'CoffeeScript' == lang
+					console.group 'code'
+					console.log code
+					console.groupEnd()
+					code
+				getCode: -> @$code.val()
+				getLang: -> @$lang.val()
+				getJsCode: -> @prepareCode @getLang(), @getCode()
+				updateSolid: -> @gProcessor.setJsCad @getJsCode()
+				currentFilename: -> /\/([^\/]*?)$/.exec(window.location.pathname)[1]
+
+				loadFile: (fn) ->
+					rev = localStorage[fn]
+					JSON.parse localStorage[rev]
+
+				writeFile: (fn, lang, code) ->
+					rev = Math.uuid()
+					localStorage[rev] = JSON.stringify [fn, @revision, @getLang(), @getCode()]
+					localStorage[fn] = @revision = rev
+
+				# Store the file-history (for undo) in the browser-storage:
+				edit_history: (event) ->
+					fn = @currentFilename()
+					code = @getCode()
+					lang = @getLang()
+					[_,_, oldlang, oldcode] = @loadFile fn
+					@writeFile fn, lang, code  unless oldcode == code and oldlang == lang
+					true
+
+				resizeCode: ->
+					@$code.css
+						width: "#{@$body.innerWidth() - @$viewer.outerWidth() - @$code.outerWidth() + @$code.width()}px"
+						height: '600px'
+
+				zoom: (i) ->
+					factor = -1
+					viewer = @gProcessor.viewer
+					viewer.viewpointZ *= Math.pow 2, factor * i
+					viewer.onDraw()
 
 			# http://pallieter.org/Projects/insertTab/
 			window.insertTab = (o, e) ->
@@ -89,55 +158,20 @@
 						e.preventDefault()
 				true
 
-			window.currentFilename = -> /\/([^\/]*?)$/.exec(window.location.pathname)[1]
-
-			window.loadFile = (fn) ->
-				rev = localStorage[fn]
-				JSON.parse localStorage[rev]
-
-			window.writeFile = (fn, lang, code) ->
-				rev = Math.uuid()
-				localStorage[rev] = JSON.stringify [fn, revision, getLang(), getCode()]
-				localStorage[fn] = revision = rev
-
-			# Store the file-history (for undo) in the browser-storage:
-			window.edit_history = (event) ->
-				fn = currentFilename()
-				code = getCode()
-				lang = getLang()
-				[_,_, oldlang, oldcode] = loadFile fn
-				writeFile fn, lang, code  unless oldcode == code and oldlang == lang
-				true
-
-			CSG.loadFile = (fn) ->
-				[fn, rev, lang, code] = loadFile()
-				eval prepareCode( lang, code)
-
-			window.resizeCode = ->
-				$code = $ '#code'
-				$code.css
-					width: "#{$('body').innerWidth() - $('#viewer').outerWidth() - $code.outerWidth() + $code.width()}px"
-					height: '600px'
-
 			$ ->
-				$('#code').
-					on( 'keydown', (e)-> insertTab this, e).
-					on( 'keyup', edit_history)
-
-				[fn, rev, lang, code] = loadFile currentFilename()
-				$('#lang').val lang
-				$('#code').val code
-				gProcessor = new OpenJsCad.Processor $("#viewer")[0]
-				updateSolid()
-				resizeCode()
-
+				window.openjscadUI = new UI
+				openjscadUI.$code.on 'keydown', (e)-> insertTab this, e
 		</script>
-		<title>OpenJsCad</title>  
+		<title>OpenJsCad</title>
 	</head>
 
 	<body>
 		<header>
-			<a href='#' onclick="updateSolid(); return false;">Update</a>
+			<button onclick="openjscadUI.updateSolid();return false;">Update</button>
+			<span style="float:right">
+				<button onclick="openjscadUI.zoom(1);return false;">+</button>
+				<button onclick="openjscadUI.zoom(-1);return false;">-</button>
+			</span>
 		</header>
 
 		<div id="viewer" style="float:right;"></div>
