@@ -320,10 +320,16 @@ OpenJsCad.javaScriptToSolidSync = function(script, mainParameters, debugging) {
 // callback: should be function(error, csg)
 OpenJsCad.javaScriptToSolidASync = function(script, mainParameters, callback) {
   var baselibraries = [
-    "../csg.js",
-    "../openjscad.js"
+    "csg.js",
+    "openjscad.js"
   ];
-  var baseurl = document.location + "";
+	var baseurl = document.location + '';
+	var base = document.getElementsByTagName('base');
+	if( base) {
+		base = base.getAttribute('href');
+		if( base)
+			baseurl = OpenJsCad.makeAbsoluteUrl(baseurl, base);
+	}
   var workerscript = "";
   workerscript += script;
   workerscript += "\n\n\n\n//// The following code is added by OpenJsCad:\n";

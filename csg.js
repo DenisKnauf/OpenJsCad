@@ -1017,7 +1017,8 @@ CSG.parseOptionAsBool = function(options, optionname, defaultvalue) {
 //     });
 CSG.cube = function(options) {
   var c = CSG.parseOptionAs3DVector(options, "center", [0,0,0]);
-  var r = CSG.parseOptionAs3DVector(options, "radius", [1,1,1]);
+	var s = CSG.parseOptionAs3DVector(options, "size",   [2,2,2]);
+  var r = CSG.parseOptionAs3DVector(options, "radius", [s.x/2,s.y/2,s.z/2]);
   var result = CSG.fromPolygons([
     [[0, 4, 6, 2], [-1, 0, 0]],
     [[1, 3, 7, 5], [+1, 0, 0]],
@@ -1307,7 +1308,8 @@ CSG.roundedCylinder = function(options) {
 //     });
 CSG.roundedCube = function(options) {
   var center = CSG.parseOptionAs3DVector(options, "center", [0,0,0]);
-  var cuberadius = CSG.parseOptionAs3DVector(options, "radius", [1,1,1]);
+	var cubesize   = CSG.parseOptionAs3DVector(options, "size",   [2,2,2]);
+  var cuberadius = CSG.parseOptionAs3DVector(options, "radius", [cubesize.x/2,cubesize.y/2,cubesize.z/2]);
   var resolution = CSG.parseOptionAsFloat(options, "resolution", 8);
   if(resolution < 4) resolution = 4;
   var roundradius = CSG.parseOptionAsFloat(options, "roundradius", 0.2);

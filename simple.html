@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<script src="../lightgl.js"></script>
-		<script src="../csg.js"></script>
-		<script src="../openjscad.js"></script>
-		<script src="../jquery.js"></script>
-		<script src="../coffee-script.js"></script>
-		<script src="../Math.uuid.js"></script>
+		<base href="../" />
+		<script src="lightgl.js"></script>
+		<script src="csg.js"></script>
+		<script src="openjscad.js"></script>
+		<script src="jquery.js"></script>
+		<script src="coffee-script.js"></script>
+		<script src="Math.uuid.js"></script>
 		<style>
 			body {
 				font: 14px/20px 'Helvetica Neue Light', HelveticaNeue-Light, 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -19,6 +20,10 @@
 				padding: 0;
 				margin: 0;
 				color: #555;
+			}
+			body > * {
+				box-sizing: border-box;
+				-webkit-box-sizing: border-box;
 			}
 			pre {
 				padding: 10px;
@@ -48,8 +53,14 @@
 				margin: 2em 0 0 0;
 				padding: 0;
 			}
+			#viewer > .statusdiv + div {
+				overflow: auto;
+				box-sizing: border-box;
+				-webkit-box-sizing: border-box;
+				width: 800px;
+			}
 		</style>
-		<link rel="stylesheet" href="../openjscad.css" type="text/css">
+		<link rel="stylesheet" href="openjscad.css" type="text/css">
 		<script type="text/coffeescript">
 			window.DelayedCall = (fun, delay = 250) ->
 				self = (args...) ->
@@ -111,8 +122,10 @@
 				currentFilename: -> /\/([^\/]*?)$/.exec(window.location.pathname)[1]
 
 				loadFile: (fn) ->
-					rev = localStorage[fn]
-					JSON.parse localStorage[rev]
+					if rev = localStorage[fn]
+						JSON.parse localStorage[rev]
+					else
+						[fn, null, 'CoffeeScript', "main = ->\n\tCSG.cube radius: 1"]
 
 				writeFile: (fn, lang, code) ->
 					rev = Math.uuid()
